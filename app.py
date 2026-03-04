@@ -33,7 +33,7 @@ if 'atletas_df' not in st.session_state:
 # --- SIDEBAR ---
 with st.sidebar:
     st.title("🥋 Menu Principal")
-    aba = st.radio("Navegação", ["🏠 Dashboard", "🥋 Atletas", "💰 Financeiro", "⚙️ Sistema"], key="nav_v58")
+    aba = st.radio("Navegação", ["🏠 Dashboard", "🥋 Atletas", "💰 Financeiro", "⚙️ Sistema"], key="nav_v59")
 
 # --- 🏠 DASHBOARD ---
 if aba == "🏠 Dashboard":
@@ -53,7 +53,7 @@ if aba == "🏠 Dashboard":
             st.plotly_chart(px.pie(df_a, names='Faixa', title="Distribuição por Faixa"), use_container_width=True)
         with col_g2:
             if not df_f.empty:
-                st.plotly_chart(px.bar(df_f, x='Mes_Ref', y='Valor_Total', title="Faturamento Mensal"), use_container_width=True)
+                st.plotly_chart(px.bar(df_f, x='Mes_Ref', y='Valor_Total', color='Metodo', title="Faturamento por Mês"), use_container_width=True)
 
 # --- 🥋 ATLETAS ---
 elif aba == "🥋 Atletas":
@@ -61,7 +61,7 @@ elif aba == "🥋 Atletas":
     t1, t2 = st.tabs(["➕ Matrícula", "📝 Editar/Excluir"])
     
     with t1:
-        with st.form("form_novo_v58"):
+        with st.form("form_novo_v59"):
             n_nome = st.text_input("Nome Completo*")
             c_a, c_b = st.columns(2)
             n_faixa = c_a.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
@@ -69,21 +69,4 @@ elif aba == "🥋 Atletas":
             if st.form_submit_button("Finalizar Matrícula"):
                 if n_nome:
                     new_id = int(st.session_state.atletas_df['ID'].max() + 1) if not st.session_state.atletas_df.empty else 1
-                    novo = pd.DataFrame([[new_id, n_nome, n_faixa, "Ativo", n_valor, datetime.now().strftime("%d/%m/%Y"), "-", "-", "-", "-", 0.0, "N/I"]], columns=st.session_state.atletas_df.columns)
-                    st.session_state.atletas_df = pd.concat([st.session_state.atletas_df, novo], ignore_index=True)
-                    save_data(st.session_state.atletas_df, st.session_state.fin_df)
-                    st.success("Matrícula concluída!")
-                    st.rerun()
-
-    with t2:
-        if not st.session_state.atletas_df.empty:
-            pesq = st.text_input("🔍 Buscar por nome", key="pesq_atleta")
-            df_res = st.session_state.atletas_df[st.session_state.atletas_df['Nome'].str.contains(pesq, case=False)]
-            st.dataframe(df_res, use_container_width=True, hide_index=True)
-            
-            aluno_edit = st.selectbox("Selecione para editar:", df_res['Nome'].tolist(), key="sel_edit_v58")
-            idx = st.session_state.atletas_df[st.session_state.atletas_df['Nome'] == aluno_edit].index[0]
-            
-            with st.form("form_edit_v58"):
-                e_nome = st.text_input("Nome", value=st.session_state.atletas_df.at[idx, 'Nome'])
-                e_valor = st.number_input("Mensalidade", value=float(st.session_state.atletas_df.at[idx
+                    novo = pd.DataFrame([[new_id, n_nome, n_faixa, "Ativo", n_valor, datetime.now().strftime("%d/%
