@@ -3,115 +3,194 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="Associação Roberdrayner Martins", page_icon="🥋", layout="wide")
+# --- CONFIGURAÇÃO DE ALTA PERFORMANCE ---
+st.set_page_config(
+    page_title="Assoc. Roberdrayner Martins",
+    page_icon="🥋",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- CSS CORRIGIDO (Ajuste no parâmetro unsafe_allow_html) ---
+# --- DESIGN SYSTEM (CSS PROFISSIONAL) ---
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; }
-    .stMetric { background-color: #1a1c24; padding: 15px; border-radius: 10px; border-left: 5px solid #d4af37; }
-    h1 { color: #d4af37; font-family: 'Helvetica'; }
-    div[data-testid="stExpander"] { border: 1px solid #d4af37; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    
+    * { font-family: 'Inter', sans-serif; }
+    
+    /* Background Geral */
+    .stApp { background-color: #f8f9fa; }
+    
+    /* Sidebar Custom */
+    [data-testid="stSidebar"] { background-color: #1a237e; color: white; }
+    [data-testid="stSidebar"] * { color: white !important; }
+    
+    /* Cards de Métricas */
+    .metric-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border-bottom: 4px solid #d4af37;
+        text-align: center;
+    }
+    
+    /* Estilização de Tabelas e Containers */
+    div[data-testid="stExpander"] {
+        border-radius: 10px !important;
+        border: none !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    
+    .stButton>button {
+        width: 100%;
+        border-radius: 8px;
+        background-color: #1a237e;
+        color: white;
+        font-weight: 600;
+        border: none;
+        transition: 0.3s;
+    }
+    
+    .stButton>button:hover {
+        background-color: #d4af37;
+        color: #1a237e;
+    }
+
+    /* Badge Status */
+    .badge-pago { background-color: #d1fae5; color: #065f46; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+    .badge-pendente { background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-DB_FILE = "database_v3.csv"
+# --- LÓGICA DE DADOS ---
+DB_FILE = "gestao_judo_v3.csv"
 
-# --- FUNÇÕES DE DADOS ---
-def carregar_dados():
+def init_db():
     if os.path.exists(DB_FILE):
-        try:
-            return pd.read_csv(DB_FILE)
-        except:
-            pass
+        return pd.read_csv(DB_FILE)
     return pd.DataFrame(columns=[
         "ID", "Nome", "Faixa", "Nascimento", "Mensalidade", 
-        "Status", "Ultimo_Pagamento", "Forma_Pagamento"
+        "Status", "Ultimo_Pgto", "Metodo", "Cadastro_Em"
     ])
 
-def salvar_dados(df):
-    df.to_csv(DB_FILE, index=False)
+if 'df' not in st.session_state:
+    st.session_state.df = init_db()
 
-if 'atletas' not in st.session_state:
-    st.session_state.atletas = carregar_dados()
+def save():
+    st.session_state.df.to_csv(DB_FILE, index=False)
 
-# --- SIDEBAR ---
-st.sidebar.title("🥋 Gestão de Judô")
-st.sidebar.markdown("### Associação\n**Roberdrayner Martins**")
-aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "🥋 Atletas", "💰 Financeiro"])
+# --- SIDEBAR E CABEÇALHO ---
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/3003/3003613.png", width=80)
+    st.title("Sistema de Gestão")
+    st.markdown("---")
+    menu = st.radio("MENU", ["📈 Dashboard", "👥 Atletas", "💰 Financeiro", "⚙️ Ajustes"])
+    st.markdown("---")
+    st.caption("Assoc. Roberdrayner Martins de Judô v3.0")
 
-# --- DASHBOARD ---
-if aba == "📊 Dashboard":
-    st.title("🏯 Painel de Controle")
-    df = st.session_state.atletas
+# --- CONTEÚDO PRINCIPAL ---
+
+if menu == "📈 Dashboard":
+    st.markdown(f"<h1>🏯 Painel Administrativo</h1>", unsafe_allow_html=True)
+    df = st.session_state.df
     
+    # KPIs Superiores
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(f'<div class="metric-card"><h3>{len(df)}</h3><p>Total Alunos</p></div>', unsafe_allow_html=True)
+    with c2:
+        pagos = len(df[df['Status'] == 'Pago'])
+        st.markdown(f'<div class="metric-card"><h3>{pagos}</h3><p>Pagos</p></div>', unsafe_allow_html=True)
+    with c3:
+        atraso = len(df[df['Status'] == 'Pendente'])
+        st.markdown(f'<div class="metric-card"><h3>{atraso}</h3><p>Pendentes</p></div>', unsafe_allow_html=True)
+    with c4:
+        total = df['Mensalidade'].astype(float).sum() if not df.empty else 0
+        st.markdown(f'<div class="metric-card"><h3>R$ {total:,.2f}</h3><p>Faturamento</p></div>', unsafe_allow_html=True)
+
+    st.markdown("### 🥋 Visão Geral dos Alunos")
     if not df.empty:
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total Alunos", len(df))
-        c2.metric("Em Dia", len(df[df['Status'] == 'Pago']))
-        c3.metric("Pendentes", len(df[df['Status'] == 'Pendente']))
-        
-        # Cálculo de receita (ajuste para tratar vazios)
-        receita = pd.to_numeric(df['Mensalidade']).sum() if 'Mensalidade' in df else 0.0
-        c4.metric("Receita Estimada", f"R$ {receita:,.2f}")
-        
-        st.divider()
-        st.subheader("Lista Geral de Alunos")
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        # Tabela Profissional
+        st.dataframe(df[['Nome', 'Faixa', 'Status', 'Ultimo_Pgto', 'Metodo']], 
+                     use_container_width=True, hide_index=True)
     else:
-        st.info("Sistema pronto. Vá em 'Atletas' para cadastrar o primeiro membro.")
+        st.info("Nenhum dado registrado até o momento.")
 
-# --- ABA: ATLETAS ---
-elif aba == "🥋 Atletas":
-    st.title("📝 Gestão de Integrantes")
+elif menu == "👥 Atletas":
+    st.markdown("<h1>👥 Gestão de Atletas</h1>", unsafe_allow_html=True)
     
-    with st.expander("➕ Cadastrar Novo Atleta", expanded=True):
-        with st.form("cadastro"):
-            col1, col2, col3 = st.columns([2, 1, 1])
-            nome = col1.text_input("Nome do Judoca")
-            faixa = col2.selectbox("Graduação", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
-            valor = col3.number_input("Mensalidade (R$)", value=150.0)
+    with st.expander("➕ Matricular Novo Aluno", expanded=True):
+        with st.form("add_atleta"):
+            col1, col2 = st.columns(2)
+            nome = col1.text_input("Nome Completo")
+            nasc = col2.date_input("Data de Nascimento", min_value=datetime(1950,1,1))
             
-            if st.form_submit_button("Finalizar Cadastro"):
+            col3, col4 = st.columns(2)
+            faixa = col3.selectbox("Faixa Atual", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
+            valor = col4.number_input("Valor da Mensalidade", value=150.0)
+            
+            if st.form_submit_button("Confirmar Matrícula"):
                 if nome:
-                    novo = {
-                        "ID": len(st.session_state.atletas) + 1,
-                        "Nome": nome, "Faixa": faixa, 
-                        "Nascimento": datetime.now().strftime("%d/%m/%Y"),
-                        "Mensalidade": valor, "Status": "Pendente", 
-                        "Ultimo_Pagamento": "-", "Forma_Pagamento": "-"
+                    new_id = len(st.session_state.df) + 1
+                    new_data = {
+                        "ID": new_id, "Nome": nome, "Faixa": faixa, 
+                        "Nascimento": nasc, "Mensalidade": valor, 
+                        "Status": "Pendente", "Ultimo_Pgto": "-", 
+                        "Metodo": "-", "Cadastro_Em": datetime.now().strftime("%d/%m/%Y")
                     }
-                    st.session_state.atletas = pd.concat([st.session_state.atletas, pd.DataFrame([novo])], ignore_index=True)
-                    salvar_dados(st.session_state.atletas)
-                    st.success("Atleta registrado!")
+                    st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([new_data])], ignore_index=True)
+                    save()
+                    st.success(f"Matrícula de {nome} realizada!")
                     st.rerun()
 
-# --- ABA: FINANCEIRO ---
-elif aba == "💰 Financeiro":
-    st.title("💸 Controle de Caixa")
-    df = st.session_state.atletas
+    st.markdown("---")
+    # Busca de Alunos
+    busca = st.text_input("🔍 Pesquisar Judoca...")
+    if busca:
+        resultados = st.session_state.df[st.session_state.df['Nome'].str.contains(busca, case=False)]
+        st.dataframe(resultados, use_container_width=True)
+
+elif menu == "💰 Financeiro":
+    st.markdown("<h1>💰 Controle Financeiro</h1>", unsafe_allow_html=True)
+    df = st.session_state.df
     
     if not df.empty:
-        st.subheader("Registrar Recebimento")
-        aluno = st.selectbox("Selecione o Aluno", df['Nome'].tolist())
+        col1, col2 = st.columns([1, 2])
         
-        c1, c2, c3 = st.columns(3)
-        data_pgto = c1.date_input("Data do Pagamento")
-        forma_pgto = c2.selectbox("Forma", ["PIX", "Dinheiro", "Cartão", "Boleto"])
-        confirmar = c3.form_submit_button if False else c3.button("Confirmar Pagamento", use_container_width=True)
-        
-        if confirmar:
-            st.session_state.atletas.loc[df['Nome'] == aluno, 'Status'] = 'Pago'
-            st.session_state.atletas.loc[df['Nome'] == aluno, 'Ultimo_Pagamento'] = data_pgto.strftime("%d/%m/%Y")
-            st.session_state.atletas.loc[df['Nome'] == aluno, 'Forma_Pagamento'] = forma_pgto
-            salvar_dados(st.session_state.atletas)
-            st.toast(f"Pagamento de {aluno} confirmado!")
-            st.rerun()
+        with col1:
+            st.subheader("Dar Baixa")
+            aluno_sel = st.selectbox("Selecione o Aluno", df['Nome'].tolist())
+            data_pg = st.date_input("Data do Recebimento")
+            forma = st.selectbox("Forma", ["PIX", "Dinheiro", "Cartão", "Boleto"])
             
-        st.divider()
-        st.subheader("Histórico de Pagamentos")
-        pagos = df[df['Status'] == 'Pago']
-        st.table(pagos[['Nome', 'Ultimo_Pagamento', 'Forma_Pagamento', 'Mensalidade']])
-    else:
-        st.warning("Cadastre alunos primeiro.")
+            if st.button("Confirmar Pagamento"):
+                st.session_state.df.loc[df['Nome'] == aluno_sel, ['Status', 'Ultimo_Pgto', 'Metodo']] = ['Pago', data_pg.strftime("%d/%m/%Y"), forma]
+                save()
+                st.toast("Financeiro Atualizado!")
+                st.rerun()
+        
+        with col2:
+            st.subheader("Relatório de Recebimentos")
+            # Filtro de inadimplentes
+            apenas_pagos = df[df['Status'] == 'Pago']
+            st.dataframe(apenas_pagos[['Nome', 'Ultimo_Pgto', 'Metodo', 'Mensalidade']], use_container_width=True)
+            
+            if st.button("Limpar Mês (Resetar todos para Pendente)"):
+                st.session_state.df['Status'] = 'Pendente'
+                save()
+                st.rerun()
+
+elif menu == "⚙️ Ajustes":
+    st.markdown("<h1>⚙️ Configurações</h1>", unsafe_allow_html=True)
+    st.write("Configurações do sistema e backup.")
+    
+    if st.button("📥 Baixar Backup (Excel)"):
+        st.session_state.df.to_excel("backup_judo.xlsx", index=False)
+        st.success("Arquivo gerado na pasta do sistema!")
+        
+    if st.button("🔴 APAGAR TUDO (CUIDADO)"):
+        if os.path.exists(DB_FILE):
+            os.remove(DB_FILE)
+            st.session_state.df = init_db()
+            st.rerun()
