@@ -5,223 +5,232 @@ import time
 from datetime import datetime, date
 import plotly.express as px
 
-# --- 1. CORE CONFIGURATION & PROFESSIONAL UI ---
-st.set_page_config(page_title="Judô Pro | Gestão Corporativa", page_icon="🥋", layout="wide")
+# --- 1. CONFIGURAÇÃO DE AMBIENTE ---
+st.set_page_config(page_title="Judô Pro | Gestão Enterprise", page_icon="🥋", layout="wide")
 
+# --- 2. ESTILIZAÇÃO DE ALTA FIDELIDADE ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     * { font-family: 'Inter', sans-serif; }
+    .stApp { background-color: #F8FAFC; }
     
-    /* Cores e Background */
-    .stApp { background-color: #F1F5F9; }
-    [data-testid="stSidebar"] { background-color: #0F172A !important; }
+    /* Sidebar Estilizada */
+    [data-testid="stSidebar"] { background-color: #1E293B !important; border-right: 1px solid #CBD5E1; }
+    [data-testid="stSidebar"] * { color: #F8FAFC !important; }
     
-    /* Metrics Premium */
+    /* Cards de Métricas */
     div[data-testid="stMetric"] {
-        background-color: white; border: 1px solid #E2E8F0;
-        padding: 1.5rem; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        background-color: white; border-radius: 12px; padding: 20px !important;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid #E2E8F0;
     }
     
-    /* Botões de Ação */
+    /* Botões Primários */
     .stButton>button {
-        width: 100%; border-radius: 8px; height: 3em;
-        background-color: #2563EB; color: white; font-weight: 600; border: none;
+        background: #2563EB; color: white; border-radius: 8px; border: none;
+        font-weight: 600; transition: all 0.2s; width: 100%; height: 3.5em;
     }
-    .stButton>button:hover { background-color: #1D4ED8; border: none; color: white; }
+    .stButton>button:hover { background: #1D4ED8; transform: translateY(-1px); }
     
-    /* Estorno Button */
-    .btn-estorno > div > button { background-color: #DC2626 !important; }
+    /* Botão de Estorno/Exclusão */
+    .stButton.btn-danger>button { background: #DC2626 !important; }
+    
+    /* Tabelas */
+    .stDataFrame { background: white; border-radius: 10px; border: 1px solid #E2E8F0; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 2. DATA ENGINE (DATABASE LAYER) ---
-class Database:
-    ATLETAS = "db_atletas_pro.csv"
-    FINANCEIRO = "db_financeiro_pro.csv"
-    
-    COLS_A = ["ID", "Nome", "Status", "CPF", "Nascimento", "Sexo", "Faixa", "Telefone", "Responsavel", "CPF_Resp", "Mensalidade", "Vencimento", "Filiacao", "Obs"]
-    COLS_F = ["ID_Lan", "ID_Atleta", "Nome", "Mes_Ref", "Valor", "Data_PG", "Metodo"]
+# --- 3. MOTOR DE DADOS (DATA ENGINE) ---
+class JudoCore:
+    def __init__(self):
+        self.path_a = "db_atletas_v35.csv"
+        self.path_f = "db_financeiro_v35.csv"
+        self.cols_a = ["ID", "Nome", "Status", "CPF", "Nasc", "Sexo", "Faixa", "WhatsApp", "Responsavel", "CPF_Resp", "Mensalidade", "Vencimento", "Filiacao", "Obs"]
+        self.cols_f = ["ID_Lan", "ID_Atleta", "Nome", "Mes_Ref", "Valor", "Data_PG", "Metodo"]
+        self.init_db()
 
-    @classmethod
-    def initialize(cls):
-        if not os.path.exists(cls.ATLETAS): pd.DataFrame(columns=cls.COLS_A).to_csv(cls.ATLETAS, index=False)
-        if not os.path.exists(cls.FINANCEIRO): pd.DataFrame(columns=cls.COLS_F).to_csv(cls.FINANCEIRO, index=False)
+    def init_db(self):
+        if not os.path.exists(self.path_a): pd.DataFrame(columns=self.cols_a).to_csv(self.path_a, index=False)
+        if not os.path.exists(self.path_f): pd.DataFrame(columns=self.cols_f).to_csv(self.path_f, index=False)
 
-    @classmethod
-    def load(cls):
-        df_a = pd.read_csv(cls.ATLETAS)
-        df_f = pd.read_csv(cls.FINANCEIRO)
-        # Sanitização de tipos
-        df_a['Mensalidade'] = pd.to_numeric(df_a['Mensalidade'], errors='coerce').fillna(0.0)
-        df_f['Valor'] = pd.to_numeric(df_f['Valor'], errors='coerce').fillna(0.0)
-        return df_a, df_f
+    def load_data(self):
+        try:
+            df_a = pd.read_csv(self.path_a).fillna("")
+            df_f = pd.read_csv(self.path_f).fillna("")
+            df_a['Mensalidade'] = pd.to_numeric(df_a['Mensalidade'], errors='coerce').fillna(0.0)
+            df_f['Valor'] = pd.to_numeric(df_f['Valor'], errors='coerce').fillna(0.0)
+            return df_a, df_f
+        except Exception:
+            return pd.DataFrame(columns=self.cols_a), pd.DataFrame(columns=self.cols_f)
 
-    @classmethod
-    def save(cls, df_a, df_f):
-        df_a.to_csv(cls.ATLETAS, index=False)
-        df_f.to_csv(cls.FINANCEIRO, index=False)
+    def save_data(self, df_a, df_f):
+        df_a.to_csv(self.path_a, index=False)
+        df_f.to_csv(self.path_f, index=False)
 
-Database.initialize()
-if 'db_a' not in st.session_state:
-    st.session_state.db_a, st.session_state.db_f = Database.load()
+# Inicializar Engine
+core = JudoCore()
+if 'df_a' not in st.session_state or 'df_f' not in st.session_state:
+    st.session_state.df_a, st.session_state.df_f = core.load_data()
 
-# --- 3. AUTHENTICATION ---
+# --- 4. SEGURANÇA ---
 if "auth" not in st.session_state: st.session_state.auth = False
-if not st.session_state.auth:
-    _, col_log, _ = st.columns([1, 0.8, 1])
-    with col_log:
-        st.markdown("<h1 style='text-align:center;'>🥋 Judô Pro</h1>", unsafe_allow_html=True)
-        with st.container(border=True):
-            pw = st.text_input("Senha Master", type="password")
-            if st.button("Acessar Painel"):
-                if pw == "judo123":
-                    st.session_state.auth = True
-                    st.rerun()
-                else: st.error("Acesso Negado")
-    st.stop()
 
-# --- 4. NAVIGATION ---
+def login():
+    if not st.session_state.auth:
+        _, col, _ = st.columns([1, 1, 1])
+        with col:
+            st.markdown("<br><h1 style='text-align:center;'>🥋 Judô Pro</h1>", unsafe_allow_html=True)
+            with st.container(border=True):
+                pw = st.text_input("Acesso Administrativo", type="password")
+                if st.button("Acessar"):
+                    if pw == "judo123":
+                        st.session_state.auth = True
+                        st.rerun()
+                    else: st.error("Incorreta.")
+        st.stop()
+
+login()
+
+# --- 5. INTERFACE PRINCIPAL ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3043/3043831.png", width=80)
-    menu = st.radio("SISTEMA", ["📊 Dashboard", "👥 Gestão de Alunos", "💰 Financeiro", "⚙️ Backup"])
+    st.markdown("## ⚙️ Painel de Controle")
+    menu = st.radio("NAVEGAÇÃO", ["🏠 Início", "👥 Alunos", "💰 Financeiro", "📊 Relatórios"], label_visibility="collapsed")
     st.divider()
-    if st.button("Deslogar"):
+    if st.button("Sair"):
         st.session_state.auth = False
         st.rerun()
 
-# --- 5. MODULES ---
-
-# DASHBOARD
-if menu == "📊 Dashboard":
-    st.title("📊 Indicadores Gerenciais")
-    df_a, df_f = st.session_state.db_a, st.session_state.db_f
+# --- MODULO: INÍCIO (DASHBOARD) ---
+if menu == "🏠 Início":
+    st.title("🏠 Visão Geral")
+    df_a, df_f = st.session_state.df_a, st.session_state.df_f
     
     ativos = df_a[df_a['Status'] == 'Ativo']
-    faturamento_alvo = ativos['Mensalidade'].sum()
-    recebido_mes = df_f[df_f['Mes_Ref'] == datetime.now().strftime("%m/%Y")]['Valor'].sum()
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Alunos Ativos", len(ativos))
+    c2.metric("Total de Alunos", len(df_a))
     
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Alunos Ativos", len(ativos))
-    m2.metric("Inadimplência Est.", f"R$ {max(0, faturamento_alvo - recebido_mes):,.2f}", delta_color="inverse")
-    m3.metric("Faturamento Alvo", f"R$ {faturamento_alvo:,.2f}")
-    m4.metric("Recebido (Mês)", f"R$ {recebido_mes:,.2f}")
+    receita_alvo = ativos['Mensalidade'].sum()
+    receita_real = df_f[df_f['Mes_Ref'] == datetime.now().strftime("%m/%Y")]['Valor'].sum()
+    
+    c3.metric("Faturamento Alvo", f"R$ {receita_alvo:,.2f}")
+    c4.metric("Recebido (Mes)", f"R$ {receita_real:,.2f}", delta=f"R$ {receita_real - receita_alvo:,.2f}")
 
+    st.divider()
     col_g1, col_g2 = st.columns(2)
     with col_g1:
-        st.subheader("Faturamento por Mês")
+        st.subheader("Faturamento Mensal")
         if not df_f.empty:
-            df_chart = df_f.groupby('Mes_Ref')['Valor'].sum().reset_index()
-            st.plotly_chart(px.bar(df_chart, x='Mes_Ref', y='Valor', color_discrete_sequence=['#2563EB']), use_container_width=True)
+            st.plotly_chart(px.bar(df_f.groupby('Mes_Ref')['Valor'].sum().reset_index(), x='Mes_Ref', y='Valor', color_discrete_sequence=['#2563EB']), use_container_width=True)
     with col_g2:
         st.subheader("População por Faixa")
-        st.plotly_chart(px.pie(df_a, names='Faixa', hole=0.4), use_container_width=True)
+        if not df_a.empty:
+            st.plotly_chart(px.pie(df_a, names='Faixa', hole=0.4), use_container_width=True)
 
-# GESTÃO DE ALUNOS
-elif menu == "👥 Gestão de Alunos":
-    st.title("👥 Controle de Atletas")
-    t_list, t_cad, t_edit = st.tabs(["📋 Listagem", "✨ Matrícula", "🔧 Edição Completa"])
-    
-    with t_list:
-        st.dataframe(st.session_state.db_a, use_container_width=True, hide_index=True)
+# --- MODULO: ALUNOS (CADASTRO E EDIÇÃO TOTAL) ---
+elif menu == "👥 Alunos":
+    st.title("👥 Gestão de Atletas")
+    tab_l, tab_c, tab_e = st.tabs(["📋 Listagem", "✨ Matrícula", "🔧 Edição Completa"])
 
-    with t_cad:
-        with st.form("cad_atleta", clear_on_submit=True):
-            st.subheader("Nova Matrícula")
+    with tab_l:
+        st.dataframe(st.session_state.df_a, use_container_width=True, hide_index=True)
+
+    with tab_c:
+        with st.form("form_cadastro", clear_on_submit=True):
+            st.subheader("Nova Ficha de Matrícula")
             c1, c2, c3 = st.columns([2, 1, 1])
-            nome = c1.text_input("Nome Completo*")
-            cpf = c2.text_input("CPF*")
-            nasc = c3.date_input("Nascimento", date(2010, 1, 1))
+            n_nome = c1.text_input("Nome Completo*")
+            n_cpf = c2.text_input("CPF*")
+            n_nasc = c3.date_input("Nascimento", date(2010, 1, 1))
             
             c4, c5, c6 = st.columns(3)
-            sexo = c4.selectbox("Sexo", ["Masculino", "Feminino", "Outro"])
-            faixa = c5.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
-            tel = c6.text_input("WhatsApp*")
+            n_sexo = c4.selectbox("Sexo", ["Masculino", "Feminino", "Outro"])
+            n_faixa = c5.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
+            n_tel = c6.text_input("WhatsApp*")
             
-            c7, c8 = st.columns(2)
-            mensal = c7.number_input("Mensalidade (R$)", 150.0)
-            venc = c8.selectbox("Dia de Vencimento", list(range(1, 31)), index=4)
+            c7, c8, c9 = st.columns(3)
+            n_mensal = c7.number_input("Mensalidade (R$)", value=150.0)
+            n_venc = c8.selectbox("Vencimento (Dia)", list(range(1, 31)), index=4)
+            n_resp = c9.text_input("Responsável (Se menor)")
+
+            n_obs = st.text_area("Observações/Saúde")
             
             if st.form_submit_button("Finalizar Matrícula"):
-                if nome and cpf:
-                    new_id = int(st.session_state.db_a['ID'].max() + 1) if not st.session_state.db_a.empty else 1
+                if n_nome and n_cpf:
+                    new_id = int(st.session_state.df_a['ID'].max() + 1) if not st.session_state.df_a.empty else 1
                     novo = pd.DataFrame([{
-                        "ID": new_id, "Nome": nome, "Status": "Ativo", "CPF": cpf, "Nascimento": nasc.strftime("%d/%m/%Y"),
-                        "Sexo": sexo, "Faixa": faixa, "Telefone": tel, "Mensalidade": mensal, "Vencimento": venc,
-                        "Filiacao": date.today().strftime("%d/%m/%Y")
+                        "ID": new_id, "Nome": n_nome, "Status": "Ativo", "CPF": n_cpf, "Nasc": n_nasc.strftime("%d/%m/%Y"),
+                        "Sexo": n_sexo, "Faixa": n_faixa, "WhatsApp": n_tel, "Responsavel": n_resp, "Mensalidade": n_mensal,
+                        "Vencimento": n_venc, "Filiacao": date.today().strftime("%d/%m/%Y"), "Obs": n_obs
                     }])
-                    st.session_state.db_a = pd.concat([st.session_state.db_a, novo], ignore_index=True)
-                    Database.save(st.session_state.db_a, st.session_state.db_f)
-                    st.success("Salvo!"); st.rerun()
-                else: st.error("Preencha Nome e CPF")
-
-    with t_edit:
-        st.subheader("Edição de Dados")
-        aluno_ed = st.selectbox("Escolha o aluno para alterar", st.session_state.db_a['Nome'].tolist())
-        idx = st.session_state.db_a[st.session_state.db_a['Nome'] == aluno_ed].index[0]
-        atleta = st.session_state.db_a.loc[idx]
-        
-        with st.form("form_edicao"):
-            c1, c2, c3 = st.columns([2, 1, 1])
-            u_nome = c1.text_input("Nome", value=atleta['Nome'])
-            u_status = c2.selectbox("Status", ["Ativo", "Inativo"], index=0 if atleta['Status'] == 'Ativo' else 1)
-            u_faixa = c3.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"], index=0)
-            
-            u_tel = st.text_input("Telefone", value=str(atleta['Telefone']))
-            u_mensal = st.number_input("Mensalidade", value=float(atleta['Mensalidade']))
-            u_venc = st.number_input("Vencimento", 1, 31, value=int(atleta['Vencimento']))
-            u_obs = st.text_area("Observações", value=str(atleta['Obs']) if pd.notnull(atleta['Obs']) else "")
-            
-            if st.form_submit_button("Salvar Alterações"):
-                st.session_state.db_a.loc[idx, ["Nome", "Status", "Faixa", "Telefone", "Mensalidade", "Vencimento", "Obs"]] = [u_nome, u_status, u_faixa, u_tel, u_mensal, u_venc, u_obs]
-                Database.save(st.session_state.db_a, st.session_state.db_f)
-                st.success("Dados Atualizados!"); st.rerun()
-
-# FINANCEIRO
-elif menu == "💰 Financeiro":
-    st.title("💰 Controle de Caixa")
-    tab_p, tab_e = st.tabs(["💵 Recebimento", "🔄 Estorno (Desfazer)"])
-    
-    with tab_p:
-        with st.form("pagamento"):
-            st.subheader("Registrar Entrada")
-            ativos = st.session_state.db_a[st.session_state.db_a['Status'] == 'Ativo']
-            aluno = st.selectbox("Aluno", ativos['Nome'].tolist())
-            c1, c2 = st.columns(2)
-            data_p = c1.date_input("Data do Pagamento")
-            mes_r = c2.text_input("Mês Referência", date.today().strftime("%m/%Y"))
-            valor = st.number_input("Valor", value=float(ativos[ativos['Nome'] == aluno]['Mensalidade'].values[0]))
-            metodo = st.selectbox("Metodo", ["PIX", "Dinheiro", "Cartão"])
-            
-            if st.form_submit_button("Confirmar Baixa"):
-                lan_id = int(st.session_state.db_f['ID_Lan'].max() + 1) if not st.session_state.db_f.empty else 1
-                novo_pg = pd.DataFrame([{"ID_Lan": lan_id, "ID_Atleta": 0, "Nome": aluno, "Mes_Ref": mes_r, "Valor": valor, "Data_PG": data_p.strftime("%d/%m/%Y"), "Metodo": metodo}])
-                st.session_state.db_f = pd.concat([st.session_state.db_f, novo_pg], ignore_index=True)
-                Database.save(st.session_state.db_a, st.session_state.db_f)
-                st.success("Pago!"); st.rerun()
+                    st.session_state.df_a = pd.concat([st.session_state.df_a, novo], ignore_index=True)
+                    core.save_data(st.session_state.df_a, st.session_state.df_f)
+                    st.success("Matrícula Efetuada!"); st.rerun()
+                else: st.error("Preencha os campos obrigatórios.")
 
     with tab_e:
-        st.subheader("Anular Pagamento")
-        if not st.session_state.db_f.empty:
-            df_reverso = st.session_state.db_f.iloc[::-1]
-            opcoes = [f"{r['ID_Lan']} - {r['Nome']} (R$ {r['Valor']:.2f})" for _, r in df_reverso.iterrows()]
-            escolha = st.selectbox("Selecione o lançamento para APAGAR", opcoes)
+        st.subheader("Alteração de Cadastro")
+        aluno_sel = st.selectbox("Selecione para Editar", st.session_state.df_a['Nome'].tolist() if not st.session_state.df_a.empty else ["Nenhum"])
+        if aluno_sel != "Nenhum":
+            idx = st.session_state.df_a[st.session_state.df_a['Nome'] == aluno_sel].index[0]
+            atl = st.session_state.df_a.loc[idx]
+            
+            with st.form("form_edicao_master"):
+                c1, c2, c3 = st.columns([2, 1, 1])
+                u_nome = c1.text_input("Nome", value=str(atl['Nome']))
+                u_status = c2.selectbox("Status", ["Ativo", "Inativo"], index=0 if atl['Status'] == 'Ativo' else 1)
+                u_cpf = c3.text_input("CPF", value=str(atl['CPF']))
+                
+                c4, c5, c6 = st.columns(3)
+                u_faixa = c4.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"], index=0)
+                u_mensal = c5.number_input("Mensalidade", value=float(atl['Mensalidade']))
+                u_tel = c6.text_input("WhatsApp", value=str(atl['WhatsApp']))
+                
+                u_obs = st.text_area("Observações", value=str(atl['Obs']))
+                
+                if st.form_submit_button("💾 Salvar Alterações"):
+                    st.session_state.df_a.loc[idx, ["Nome", "Status", "CPF", "Faixa", "Mensalidade", "WhatsApp", "Obs"]] = [u_nome, u_status, u_cpf, u_faixa, u_mensal, u_tel, u_obs]
+                    core.save_data(st.session_state.df_a, st.session_state.df_f)
+                    st.success("Cadastro Atualizado!"); st.rerun()
+
+# --- MODULO: FINANCEIRO (LANÇAMENTO E ESTORNO) ---
+elif menu == "💰 Financeiro":
+    st.title("💰 Controle de Mensalidades")
+    tab_p, tab_r = st.tabs(["💵 Receber", "🔄 Estornar/Histórico"])
+    
+    with tab_p:
+        ativos = st.session_state.df_a[st.session_state.df_a['Status'] == 'Ativo']
+        if not ativos.empty:
+            with st.form("form_pg", clear_on_submit=True):
+                aluno_p = st.selectbox("Aluno", ativos['Nome'].tolist())
+                c1, c2 = st.columns(2)
+                f_data = c1.date_input("Data do PG")
+                f_mes = c2.text_input("Mês Ref (MM/AAAA)", date.today().strftime("%m/%Y"))
+                
+                val_sug = float(ativos[ativos['Nome'] == aluno_p]['Mensalidade'].values[0])
+                f_valor = st.number_input("Valor Recebido", value=val_sug)
+                f_met = st.selectbox("Meio", ["PIX", "Dinheiro", "Cartão"])
+                
+                if st.form_submit_button("Confirmar Pagamento"):
+                    lan_id = int(st.session_state.df_f['ID_Lan'].max() + 1) if not st.session_state.df_f.empty else 1
+                    novo_lan = pd.DataFrame([{"ID_Lan": lan_id, "ID_Atleta": 0, "Nome": aluno_p, "Mes_Ref": f_mes, "Valor": f_valor, "Data_PG": f_data.strftime("%d/%m/%Y"), "Metodo": f_met}])
+                    st.session_state.df_f = pd.concat([st.session_state.df_f, novo_lan], ignore_index=True)
+                    core.save_data(st.session_state.df_a, st.session_state.df_f)
+                    st.success("Pagamento Registrado!"); st.rerun()
+        else: st.warning("Sem alunos ativos.")
+
+    with tab_r:
+        if not st.session_state.df_f.empty:
+            st.subheader("Desfazer Lançamento")
+            df_rev = st.session_state.df_f.iloc[::-1]
+            lista_lan = [f"{r['ID_Lan']} - {r['Nome']} (R$ {r['Valor']:.2f})" for _, r in df_rev.iterrows()]
+            escolha = st.selectbox("Selecione o lançamento para APAGAR", lista_lan)
             id_del = int(escolha.split(" - ")[0])
             
-            st.markdown(f"**Confirma a exclusão definitiva do lançamento #{id_del}?**")
-            st.markdown('<div class="btn-estorno">', unsafe_allow_html=True)
-            if st.button("EXCLUIR PAGAMENTO"):
-                st.session_state.db_f = st.session_state.db_f[st.session_state.db_f['ID_Lan'] != id_del]
-                Database.save(st.session_state.db_a, st.session_state.db_f)
-                st.error("Lançamento Removido!"); time.sleep(1); st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+            if st.button("🔥 Confirmar Estorno"):
+                st.session_state.df_f = st.session_state.df_f[st.session_state.df_f['ID_Lan'] != id_del]
+                core.save_data(st.session_state.df_a, st.session_state.df_f)
+                st.error("Lançamento Removido!"); time.sleep(0.5); st.rerun()
+            
             st.divider()
-            st.dataframe(st.session_state.db_f, use_container_width=True)
-
-# BACKUP
-elif menu == "⚙️ Backup":
-    st.title("⚙️ Administração de Dados")
-    st.write("Baixe seus dados para segurança externa (Excel/CSV)")
-    c1, c2 = st.columns(2)
-    c1.download_button("📥 Baixar Base de Alunos", st.session_state.db_a.to_csv(index=False), "alunos.csv")
-    c2.download_button("📥 Baixar Base Financeira", st.session_state.db_f.to_csv(index=False), "financeiro.csv")
+            st.dataframe(st.session_state.df_f, use_container_width=True, hide_index=True)
