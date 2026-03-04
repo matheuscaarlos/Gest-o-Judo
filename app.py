@@ -39,7 +39,7 @@ with st.sidebar:
         st.image("image_0.png", use_container_width=True)
     st.markdown("### Associação Roberdrayner Martins")
     st.divider()
-    aba = st.radio("Navegação", ["🏠 Dashboard", "🥋 Atletas", "💰 Financeiro", "⚙️ Sistema"], key="nav_main_v53")
+    aba = st.radio("Navegação", ["🏠 Dashboard", "🥋 Atletas", "💰 Financeiro", "⚙️ Sistema"], key="nav_main_v54")
 
 # --- DASHBOARD ---
 if aba == "🏠 Dashboard":
@@ -69,7 +69,7 @@ elif aba == "🥋 Atletas":
     tab1, tab2 = st.tabs(["➕ Matrícula", "🔍 Editar / Excluir"])
     
     with tab1:
-        with st.form(key="form_matricula"):
+        with st.form(key="form_matricula_v54"):
             nome_n = st.text_input("Nome Completo*")
             c_a, c_b = st.columns(2)
             faixa_n = c_a.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
@@ -92,9 +92,18 @@ elif aba == "🥋 Atletas":
         
         if not df_res.empty:
             st.divider()
-            atleta_selec = st.selectbox("Escolha um aluno para alterar:", df_res['Nome'].tolist())
+            atleta_selec = st.selectbox("Escolha um aluno para alterar:", df_res['Nome'].tolist(), key="sel_atleta_edit")
             idx = st.session_state.atletas_df[st.session_state.atletas_df['Nome'] == atleta_selec].index[0]
             
-            # CORREÇÃO AQUI: Adicionado os dois-pontos e a chave do formulário
-            with st.form(key="form_edicao_detalhado"):
-                e_nome = st.text_input("Alterar Nome", value=st.session_state.atletas_df.at[idx
+            with st.form(key="form_edicao_final"):
+                # CORREÇÃO DA LINHA 100 AQUI: Colchetes fechados corretamente
+                e_nome = st.text_input("Alterar Nome", value=st.session_state.atletas_df.at[idx, 'Nome'])
+                e_mensal = st.number_input("Alterar Valor Mensalidade", value=float(st.session_state.atletas_df.at[idx, 'Mensalidade']))
+                e_status = st.selectbox("Status", ["Ativo", "Inativo"], index=0 if st.session_state.atletas_df.at[idx, 'Status'] == "Ativo" else 1)
+                
+                col_btn1, col_btn2 = st.columns(2)
+                if col_btn1.form_submit_button("💾 Salvar Alterações"):
+                    st.session_state.atletas_df.at[idx, 'Nome'] = e_nome
+                    st.session_state.atletas_df.at[idx, 'Mensalidade'] = e_mensal
+                    st.session_state.atletas_df.at[idx, 'Status'] = e_status
+                    save_data(st.session_state.atletas_df, st.session_state.fin_df
