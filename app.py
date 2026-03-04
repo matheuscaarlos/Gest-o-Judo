@@ -33,7 +33,7 @@ if 'atletas_df' not in st.session_state:
 # --- SIDEBAR ---
 with st.sidebar:
     st.title("🥋 Menu Principal")
-    aba = st.radio("Navegação", ["🏠 Dashboard", "🥋 Atletas", "💰 Financeiro", "⚙️ Sistema"], key="nav_v59")
+    aba = st.radio("Navegação", ["🏠 Dashboard", "🥋 Atletas", "💰 Financeiro", "⚙️ Sistema"], key="nav_v60")
 
 # --- 🏠 DASHBOARD ---
 if aba == "🏠 Dashboard":
@@ -53,7 +53,7 @@ if aba == "🏠 Dashboard":
             st.plotly_chart(px.pie(df_a, names='Faixa', title="Distribuição por Faixa"), use_container_width=True)
         with col_g2:
             if not df_f.empty:
-                st.plotly_chart(px.bar(df_f, x='Mes_Ref', y='Valor_Total', color='Metodo', title="Faturamento por Mês"), use_container_width=True)
+                st.plotly_chart(px.bar(df_f, x='Mes_Ref', y='Valor_Total', color='Metodo', title="Faturamento Mensal"), use_container_width=True)
 
 # --- 🥋 ATLETAS ---
 elif aba == "🥋 Atletas":
@@ -61,12 +61,8 @@ elif aba == "🥋 Atletas":
     t1, t2 = st.tabs(["➕ Matrícula", "📝 Editar/Excluir"])
     
     with t1:
-        with st.form("form_novo_v59"):
+        with st.form("form_novo_v60"):
             n_nome = st.text_input("Nome Completo*")
             c_a, c_b = st.columns(2)
             n_faixa = c_a.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
-            n_valor = c_b.number_input("Mensalidade (R$)", value=150.0)
-            if st.form_submit_button("Finalizar Matrícula"):
-                if n_nome:
-                    new_id = int(st.session_state.atletas_df['ID'].max() + 1) if not st.session_state.atletas_df.empty else 1
-                    novo = pd.DataFrame([[new_id, n_nome, n_faixa, "Ativo", n_valor, datetime.now().strftime("%d/%
+            n_valor = c_b.number_input("Mensalidade (R$)", value
