@@ -156,4 +156,4 @@ elif menu == "🥋 Alunos":
             c3, c4, c5 = st.columns(3)
             n_faixa = c3.selectbox("Faixa", ["Branca","Cinza","Azul","Amarela","Laranja","Verde","Roxa","Marrom","Preta"])
             n_mensal = c4.number_input("Mensalidade (R$)", value=150.0)
-            n_venc = c5.selectbox
+            n_venc
