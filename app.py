@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import time
-import bcrypt
+import hashlib
 from datetime import datetime
 import plotly.express as px
 
@@ -32,7 +32,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. BANCO DE DADOS ---
+# --- 3. FUNÇÕES DE HASH ---
+def hash_senha(senha):
+    return hashlib.sha256(senha.encode()).hexdigest()
+
+def verificar_senha(user_input, senha_hash):
+    return hash_senha(user_input) == senha_hash
+
+# --- 4. BANCO DE DADOS ---
 class DBManager:
     DB_A = "atleta_v26.csv"
     DB_F = "fin_v26.csv"
@@ -49,9 +56,8 @@ class DBManager:
         if not os.path.exists(DBManager.DB_F):
             pd.DataFrame(columns=DBManager.COLS_F).to_csv(DBManager.DB_F, index=False)
         if not os.path.exists(DBManager.DB_U):
-            # cria usuário admin padrão
-            senha = bcrypt.hashpw("judo123".encode(), bcrypt.gensalt())
-            pd.DataFrame([{"Usuario":"admin","SenhaHash":senha}]).to_csv(DBManager.DB_U, index=False)
+            senha_admin = hash_senha("judo123")
+            pd.DataFrame([{"Usuario":"admin","SenhaHash":senha_admin}]).to_csv(DBManager.DB_U, index=False)
 
     @staticmethod
     def load():
@@ -69,7 +75,7 @@ DBManager.initialize()
 if 'atletas_df' not in st.session_state:
     st.session_state.atletas_df, st.session_state.fin_df, st.session_state.usuarios_df = DBManager.load()
 
-# --- 4. LOGIN SEGURO ---
+# --- 5. LOGIN SEGURO ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
 
 def login():
@@ -82,8 +88,8 @@ def login():
             if st.button("Acessar Painel"):
                 df_u = st.session_state.usuarios_df
                 if user in df_u['Usuario'].values:
-                    senha_hash = df_u[df_u['Usuario']==user]['SenhaHash'].values[0].encode()
-                    if bcrypt.checkpw(senha.encode(), senha_hash):
+                    senha_hash = df_u[df_u['Usuario']==user]['SenhaHash'].values[0]
+                    if verificar_senha(senha, senha_hash):
                         st.session_state.autenticado = True
                         st.rerun()
                     else: st.error("Senha incorreta.")
@@ -92,7 +98,7 @@ def login():
 
 login()
 
-# --- 5. MENU ---
+# --- 6. MENU ---
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/3043/3043831.png", width=70)
     st.title("Menu de Gestão")
@@ -102,8 +108,7 @@ with st.sidebar:
         st.session_state.autenticado = False
         st.rerun()
 
-# --- 6. TELAS ---
-# DASHBOARD
+# --- 7. TELAS ---
 if menu == "🏠 Início":
     st.title("📊 Painel de Controle")
     df_a, df_f = st.session_state.atletas_df, st.session_state.fin_df
@@ -128,7 +133,6 @@ if menu == "🏠 Início":
             prox = df_a[df_a['Status']=="Ativo"].sort_values('Dia_Vencimento')
             st.dataframe(prox[['Nome','Dia_Vencimento','Mensalidade']].head(10), use_container_width=True, hide_index=True)
 
-# ALUNOS
 elif menu == "🥋 Alunos":
     st.title("🥋 Gestão de Atletas")
     faixa_sel = st.multiselect("Filtrar por Faixa", st.session_state.atletas_df['Faixa'].unique())
@@ -138,13 +142,10 @@ elif menu == "🥋 Alunos":
     if status_sel!="Todos": df_filtrado = df_filtrado[df_filtrado['Status']==status_sel]
     st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
-# FINANCEIRO
 elif menu == "💰 Caixa":
     st.title("💰 Controle de Caixa")
     # (mantém lógica de recebimento igual ao código original)
-    # ...
 
-# RELATÓRIOS
 elif menu == "📑 Relatórios":
     st.title("📑 Exportação de Relatórios")
     df_a, df_f = st.session_state.atletas_df, st.session_state.fin_df
