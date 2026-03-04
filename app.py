@@ -3,24 +3,28 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# --- CONFIGURAÇÃO ESTÉTICA AVANÇADA ---
+# --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Associação Roberdrayner Martins", page_icon="🥋", layout="wide")
 
-# CSS Personalizado para um visual mais "Premium"
+# --- CSS CORRIGIDO (Ajuste no parâmetro unsafe_allow_html) ---
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
     .stMetric { background-color: #1a1c24; padding: 15px; border-radius: 10px; border-left: 5px solid #d4af37; }
     h1 { color: #d4af37; font-family: 'Helvetica'; }
-    .stButton>button { background-color: #d4af37; color: black; border-radius: 5px; font-weight: bold; }
+    div[data-testid="stExpander"] { border: 1px solid #d4af37; }
     </style>
-    """, unsafe_allow_stdio=True)
+    """, unsafe_allow_html=True)
 
-DB_FILE = "database_v2.csv"
+DB_FILE = "database_v3.csv"
 
+# --- FUNÇÕES DE DADOS ---
 def carregar_dados():
     if os.path.exists(DB_FILE):
-        return pd.read_csv(DB_FILE)
+        try:
+            return pd.read_csv(DB_FILE)
+        except:
+            pass
     return pd.DataFrame(columns=[
         "ID", "Nome", "Faixa", "Nascimento", "Mensalidade", 
         "Status", "Ultimo_Pagamento", "Forma_Pagamento"
@@ -34,12 +38,12 @@ if 'atletas' not in st.session_state:
 
 # --- SIDEBAR ---
 st.sidebar.title("🥋 Gestão de Judô")
-st.sidebar.subheader("Assoc. Roberdrayner Martins")
+st.sidebar.markdown("### Associação\n**Roberdrayner Martins**")
 aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "🥋 Atletas", "💰 Financeiro"])
 
 # --- DASHBOARD ---
 if aba == "📊 Dashboard":
-    st.title("🏯 Painel de Controle Institucional")
+    st.title("🏯 Painel de Controle")
     df = st.session_state.atletas
     
     if not df.empty:
@@ -47,15 +51,18 @@ if aba == "📊 Dashboard":
         c1.metric("Total Alunos", len(df))
         c2.metric("Em Dia", len(df[df['Status'] == 'Pago']))
         c3.metric("Pendentes", len(df[df['Status'] == 'Pendente']))
-        c4.metric("Receita Estimada", f"R$ {df['Mensalidade'].sum():,.2f}")
+        
+        # Cálculo de receita (ajuste para tratar vazios)
+        receita = pd.to_numeric(df['Mensalidade']).sum() if 'Mensalidade' in df else 0.0
+        c4.metric("Receita Estimada", f"R$ {receita:,.2f}")
         
         st.divider()
-        st.subheader("Situação dos Atletas")
-        st.dataframe(df.style.applymap(lambda x: 'color: #00ff00' if x == 'Pago' else ('color: #ff4b4b' if x == 'Pendente' else ''), subset=['Status']), use_container_width=True)
+        st.subheader("Lista Geral de Alunos")
+        st.dataframe(df, use_container_width=True, hide_index=True)
     else:
-        st.info("O sistema está pronto. Comece cadastrando os atletas da associação.")
+        st.info("Sistema pronto. Vá em 'Atletas' para cadastrar o primeiro membro.")
 
-# --- ABA: ATLETAS (Cadastro e Lista) ---
+# --- ABA: ATLETAS ---
 elif aba == "🥋 Atletas":
     st.title("📝 Gestão de Integrantes")
     
@@ -70,7 +77,8 @@ elif aba == "🥋 Atletas":
                 if nome:
                     novo = {
                         "ID": len(st.session_state.atletas) + 1,
-                        "Nome": nome, "Faixa": faixa, "Nascimento": datetime.now().strftime("%d/%m/%Y"),
+                        "Nome": nome, "Faixa": faixa, 
+                        "Nascimento": datetime.now().strftime("%d/%m/%Y"),
                         "Mensalidade": valor, "Status": "Pendente", 
                         "Ultimo_Pagamento": "-", "Forma_Pagamento": "-"
                     }
@@ -79,31 +87,31 @@ elif aba == "🥋 Atletas":
                     st.success("Atleta registrado!")
                     st.rerun()
 
-# --- ABA: FINANCEIRO (Data e Forma de Pagamento) ---
+# --- ABA: FINANCEIRO ---
 elif aba == "💰 Financeiro":
     st.title("💸 Controle de Caixa")
     df = st.session_state.atletas
     
     if not df.empty:
-        st.subheader("Baixa em Mensalidades")
+        st.subheader("Registrar Recebimento")
         aluno = st.selectbox("Selecione o Aluno", df['Nome'].tolist())
         
-        col1, col2, col3 = st.columns(3)
-        data_pgto = col1.date_input("Data do Pagamento")
-        forma_pgto = col2.selectbox("Forma de Pagamento", ["PIX", "Dinheiro", "Cartão de Crédito", "Cartão de Débito", "Transferência"])
-        confirmar = col3.button("Confirmar Recebimento", use_container_width=True)
+        c1, c2, c3 = st.columns(3)
+        data_pgto = c1.date_input("Data do Pagamento")
+        forma_pgto = c2.selectbox("Forma", ["PIX", "Dinheiro", "Cartão", "Boleto"])
+        confirmar = c3.form_submit_button if False else c3.button("Confirmar Pagamento", use_container_width=True)
         
         if confirmar:
             st.session_state.atletas.loc[df['Nome'] == aluno, 'Status'] = 'Pago'
             st.session_state.atletas.loc[df['Nome'] == aluno, 'Ultimo_Pagamento'] = data_pgto.strftime("%d/%m/%Y")
             st.session_state.atletas.loc[df['Nome'] == aluno, 'Forma_Pagamento'] = forma_pgto
             salvar_dados(st.session_state.atletas)
-            st.balloons()
-            st.success(f"Pagamento de {aluno} registrado com sucesso!")
+            st.toast(f"Pagamento de {aluno} confirmado!")
             st.rerun()
             
         st.divider()
-        st.subheader("Histórico Recente")
-        st.table(df[df['Status'] == 'Pago'][['Nome', 'Ultimo_Pagamento', 'Forma_Pagamento', 'Mensalidade']])
+        st.subheader("Histórico de Pagamentos")
+        pagos = df[df['Status'] == 'Pago']
+        st.table(pagos[['Nome', 'Ultimo_Pagamento', 'Forma_Pagamento', 'Mensalidade']])
     else:
-        st.warning("Cadastre alunos para gerenciar o financeiro.")
+        st.warning("Cadastre alunos primeiro.")
