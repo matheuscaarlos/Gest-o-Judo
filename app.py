@@ -109,6 +109,7 @@ with st.sidebar:
         st.rerun()
 
 # --- 7. TELAS ---
+# DASHBOARD
 if menu == "🏠 Início":
     st.title("📊 Painel de Controle")
     df_a, df_f = st.session_state.atletas_df, st.session_state.fin_df
@@ -133,21 +134,25 @@ if menu == "🏠 Início":
             prox = df_a[df_a['Status']=="Ativo"].sort_values('Dia_Vencimento')
             st.dataframe(prox[['Nome','Dia_Vencimento','Mensalidade']].head(10), use_container_width=True, hide_index=True)
 
+# ALUNOS
 elif menu == "🥋 Alunos":
     st.title("🥋 Gestão de Atletas")
-    faixa_sel = st.multiselect("Filtrar por Faixa", st.session_state.atletas_df['Faixa'].unique())
-    status_sel = st.selectbox("Status", ["Todos","Ativo","Inativo"])
-    df_filtrado = st.session_state.atletas_df
-    if faixa_sel: df_filtrado = df_filtrado[df_filtrado['Faixa'].isin(faixa_sel)]
-    if status_sel!="Todos": df_filtrado = df_filtrado[df_filtrado['Status']==status_sel]
-    st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
+    tab_list, tab_cad, tab_edit = st.tabs(["📋 Listagem Geral", "✨ Nova Matrícula", "🔧 Editar Perfil"])
 
-elif menu == "💰 Caixa":
-    st.title("💰 Controle de Caixa")
-    # (mantém lógica de recebimento igual ao código original)
+    with tab_list:
+        faixa_sel = st.multiselect("Filtrar por Faixa", st.session_state.atletas_df['Faixa'].unique())
+        status_sel = st.selectbox("Status", ["Todos","Ativo","Inativo"])
+        df_filtrado = st.session_state.atletas_df
+        if faixa_sel: df_filtrado = df_filtrado[df_filtrado['Faixa'].isin(faixa_sel)]
+        if status_sel!="Todos": df_filtrado = df_filtrado[df_filtrado['Status']==status_sel]
+        st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
 
-elif menu == "📑 Relatórios":
-    st.title("📑 Exportação de Relatórios")
-    df_a, df_f = st.session_state.atletas_df, st.session_state.fin_df
-    st.download_button("📥 Exportar Alunos (CSV)", df_a.to_csv(index=False).encode("utf-8"), "alunos.csv", "text/csv")
-    st.download_button("📥 Exportar Financeiro (CSV)", df_f.to_csv(index=False).encode("utf-8"), "financeiro.csv", "text/csv")
+    with tab_cad:
+        with st.form("cad_form", clear_on_submit=True):
+            st.subheader("Informações do Atleta")
+            c1, c2 = st.columns(2)
+            n_nome = c1.text_input("Nome Completo*")
+            n_tel = c2.text_input("Telefone*")
+            c3, c4, c5 = st.columns(3)
+            n_faixa = c3.selectbox("Faixa", ["Branca","Cinza","Azul","Amarela","Laranja","Verde","Roxa","Marrom","Preta"])
+            n_mensal = c4.number_input("Mensalidade (R$)", 
