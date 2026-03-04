@@ -1,116 +1,80 @@
 import streamlit as st
+import sqlite3
 import pandas as pd
-import os
-import time
-from datetime import datetime, date
+from datetime import date
 
-# --- 1. CONFIGURAÇÃO DE TEMA E CORES ---
-st.set_page_config(page_title="Judô Pro | Enterprise", page_icon="🥋", layout="wide")
+# --- CONFIGURAÇÃO E BANCO DE DADOS ---
+conn = sqlite3.connect('gestao_judo.db', check_same_thread=False)
+c = conn.cursor()
 
-st.markdown("""
-    <style>
-    /* Importação de Fonte Moderna */
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+def create_tables():
+    c.execute('''CREATE TABLE IF NOT EXISTS atletas 
+                 (id INTEGER PRIMARY KEY, nome TEXT, faixa TEXT, status TEXT, data_adesao DATE)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS pagamentos 
+                 (id INTEGER PRIMARY KEY, atleta_id INTEGER, valor REAL, mes_ref TEXT, pago INTEGER)''')
+    conn.commit()
+
+create_tables()
+
+# --- INTERFACE ---
+st.title("🥋 Sistema de Gestão - Judô")
+
+menu = ["Cadastrar Atleta", "Gerenciar Atletas", "Financeiro"]
+choice = st.sidebar.selectbox("Menu", menu)
+
+# --- CADASTRO ---
+if choice == "Cadastrar Atleta":
+    st.subheader("Novo Cadastro")
+    nome = st.text_input("Nome do Atleta")
+    faixa = st.selectbox("Graduação", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
     
-    :root {
-        --primary: #2563EB;
-        --sidebar: #0F172A;
-        --background: #F8FAFC;
-        --text-dark: #1E293B;
-        --success: #10B981;
-        --danger: #E11D48;
-    }
+    if st.button("Salvar"):
+        c.execute("INSERT INTO atletas (nome, faixa, status, data_adesao) VALUES (?, ?, ?, ?)", 
+                  (nome, faixa, "Ativo", date.today()))
+        conn.commit()
+        st.success(f"Atleta {nome} cadastrado com sucesso!")
 
-    * { font-family: 'Plus Jakarta Sans', sans-serif; }
-
-    /* Background Geral */
-    .stApp { background-color: var(--background); }
-
-    /* Barra Lateral (Sidebar) */
-    [data-testid="stSidebar"] {
-        background-color: var(--sidebar) !important;
-        border-right: 1px solid #1E293B;
-    }
-    [data-testid="stSidebar"] * { color: #F1F5F9 !important; }
+# --- GESTÃO DE ATLETAS ---
+elif choice == "Gerenciar Atletas":
+    st.subheader("Lista de Atletas")
+    df = pd.read_sql_query("SELECT * FROM atletas", conn)
     
-    /* Títulos e Textos */
-    h1, h2, h3 { color: var(--text-dark) !important; font-weight: 700 !important; }
+    # Exibir tabela com opção de edição
+    for index, row in df.iterrows():
+        col1, col2, col3 = st.columns([3, 1, 1])
+        col1.write(f"**{row['nome']}** - {row['faixa']}")
+        status_label = "Inativar" if row['status'] == "Ativo" else "Ativar"
+        
+        if col2.button(status_label, key=f"btn_{row['id']}"):
+            novo_status = "Inativo" if row['status'] == "Ativo" else "Ativo"
+            c.execute("UPDATE atletas SET status = ? WHERE id = ?", (novo_status, row['id']))
+            conn.commit()
+            st.rerun()
+            
+    st.dataframe(df)
 
-    /* Cards de Métricas Estilizados */
-    div[data-testid="stMetric"] {
-        background-color: white;
-        border: 1px solid #E2E8F0;
-        padding: 1.5rem !important;
-        border-radius: 16px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    }
-    div[data-testid="stMetricValue"] { color: var(--primary) !important; font-weight: 700; }
+# --- FINANCEIRO ---
+elif choice == "Financeiro":
+    st.subheader("Controle de Mensalidades")
+    df_atletas = pd.read_sql_query("SELECT id, nome FROM atletas WHERE status = 'Ativo'", conn)
+    
+    atleta_sel = st.selectbox("Selecione o Atleta", df_atletas['nome'].tolist())
+    valor = st.number_input("Valor (R$)", min_value=0.0, value=100.0)
+    mes = st.selectbox("Mês de Referência", ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"])
+    
+    if st.button("Registrar Pagamento"):
+        atleta_id = df_atletas[df_atletas['nome'] == atleta_sel]['id'].values[0]
+        c.execute("INSERT INTO pagamentos (atleta_id, valor, mes_ref, pago) VALUES (?, ?, ?, ?)", 
+                  (atleta_id, valor, mes, 1))
+        conn.commit()
+        st.balloons()
+        st.success("Pagamento registrado!")
 
-    /* Botões Primários */
-    .stButton>button {
-        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
-        color: white;
-        border-radius: 10px;
-        border: none;
-        height: 3.5rem;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        transition: all 0.3s ease;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
-        color: white;
-    }
-
-    /* Botão de Estorno (Danger) */
-    .btn-estorno > div > button {
-        background: linear-gradient(135deg, #E11D48 0%, #BE123C 100%) !important;
-        border: none !important;
-    }
-
-    /* Tabs (Abas) */
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #F1F5F9;
-        border-radius: 8px 8px 0 0;
-        padding: 10px 20px;
-        color: #64748B;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: white !important;
-        color: var(--primary) !important;
-        font-weight: 700;
-        border-bottom: 2px solid var(--primary) !important;
-    }
-
-    /* Dataframes e Tabelas */
-    .stDataFrame {
-        border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        overflow: hidden;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- 2. EXEMPLO DE APLICAÇÃO NOS MÓDULOS ---
-
-# No Módulo Financeiro, use a classe de cor para o estorno:
-# st.markdown('<div class="btn-estorno">', unsafe_allow_html=True)
-# if st.button("Confirmar Estorno"):
-#     ...
-# st.markdown('</div>', unsafe_allow_html=True)
-
-# No Dashboard, as métricas já herdam o estilo:
-st.title("🥋 Dashboard Estratégico")
-c1, c2, c3 = st.columns(3)
-c1.metric("Alunos Ativos", "142", "+5% cresc.")
-c2.metric("Receita Mensal", "R$ 21.300,00", "Dentro da meta")
-c3.metric("Inadimplência", "2.1%", "-0.4% queda", delta_color="inverse")
-
-st.divider()
-
-# Exemplo de Abas Modernas
-t1, t2 = st.tabs(["📊 Gráficos", "📋 Listagem"])
-with t1:
-    st.info("As abas agora possuem contraste elevado para facilitar a navegação.")
+    st.divider()
+    st.write("### Histórico Recente")
+    pagamentos = pd.read_sql_query("""
+        SELECT atletas.nome, pagamentos.valor, pagamentos.mes_ref 
+        FROM pagamentos 
+        JOIN atletas ON atletas.id = pagamentos.atleta_id
+    """, conn)
+    st.table(pagamentos)
