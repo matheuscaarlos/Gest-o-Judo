@@ -19,7 +19,6 @@ def load_data():
     df = pd.read_csv(DB_ATLETAS) if os.path.exists(DB_ATLETAS) else pd.DataFrame(columns=cols_atleta)
     df_fin = pd.read_csv(DB_FINANCEIRO) if os.path.exists(DB_FINANCEIRO) else pd.DataFrame(columns=cols_fin)
     
-    # Garantir colunas novas e consistência
     for c in cols_atleta: 
         if c not in df.columns: df[c] = "N/I"
     for c in cols_fin: 
@@ -40,7 +39,7 @@ with st.sidebar:
         st.image("image_0.png", use_container_width=True)
     st.markdown("### Associação Roberdrayner Martins")
     st.divider()
-    aba = st.radio("Navegação", ["🏠 Dashboard", "🥋 Atletas", "💰 Financeiro", "⚙️ Sistema"], key="nav_main")
+    aba = st.radio("Navegação", ["🏠 Dashboard", "🥋 Atletas", "💰 Financeiro", "⚙️ Sistema"], key="nav_main_v53")
 
 # --- DASHBOARD ---
 if aba == "🏠 Dashboard":
@@ -49,11 +48,8 @@ if aba == "🏠 Dashboard":
     
     c1, c2, c3 = st.columns(3)
     c1.metric("Judocas Matriculados", len(df_a))
-    
-    # Cálculo seguro de receita
     receita_val = pd.to_numeric(df_f['Valor_Total'], errors='coerce').sum() if not df_f.empty else 0
     c2.metric("Receita Total Acumulada", f"R$ {receita_val:,.2f}")
-    
     ativos = len(df_a[df_a['Status'] == 'Ativo']) if not df_a.empty else 0
     c3.metric("Alunos Ativos", ativos)
 
@@ -64,7 +60,7 @@ if aba == "🏠 Dashboard":
             st.plotly_chart(fig_faixa, use_container_width=True)
         with col_g2:
             if not df_f.empty:
-                fig_fin = px.bar(df_f, x='Mes_Ref', y='Valor_Total', color='Metodo', title="Entradas Mensais por Tipo")
+                fig_fin = px.bar(df_f, x='Mes_Ref', y='Valor_Total', color='Metodo', title="Entradas Mensais")
                 st.plotly_chart(fig_fin, use_container_width=True)
 
 # --- GESTÃO DE ATLETAS ---
@@ -73,7 +69,7 @@ elif aba == "🥋 Atletas":
     tab1, tab2 = st.tabs(["➕ Matrícula", "🔍 Editar / Excluir"])
     
     with tab1:
-        with st.form("form_matrícula", clear_on_submit=True):
+        with st.form(key="form_matricula"):
             nome_n = st.text_input("Nome Completo*")
             c_a, c_b = st.columns(2)
             faixa_n = c_a.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
@@ -86,7 +82,7 @@ elif aba == "🥋 Atletas":
                                               columns=st.session_state.atletas_df.columns)
                     st.session_state.atletas_df = pd.concat([st.session_state.atletas_df, novo_aluno], ignore_index=True)
                     save_data(st.session_state.atletas_df, st.session_state.fin_df)
-                    st.success(f"Atleta {nome_n} cadastrado com sucesso!")
+                    st.success(f"Atleta {nome_n} cadastrado!")
                     st.rerun()
 
     with tab2:
@@ -99,4 +95,6 @@ elif aba == "🥋 Atletas":
             atleta_selec = st.selectbox("Escolha um aluno para alterar:", df_res['Nome'].tolist())
             idx = st.session_state.atletas_df[st.session_state.atletas_df['Nome'] == atleta_selec].index[0]
             
-            with st.form
+            # CORREÇÃO AQUI: Adicionado os dois-pontos e a chave do formulário
+            with st.form(key="form_edicao_detalhado"):
+                e_nome = st.text_input("Alterar Nome", value=st.session_state.atletas_df.at[idx
