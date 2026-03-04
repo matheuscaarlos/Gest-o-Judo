@@ -2,157 +2,140 @@ import streamlit as st
 import pandas as pd
 import os
 import time
-import hashlib
 from datetime import datetime
 import plotly.express as px
 
-# --- 1. CONFIGURAÇÕES TÉCNICAS ---
-st.set_page_config(page_title="Judô Pro | Gestão Administrativa", page_icon="🥋", layout="wide")
+# --- 1. CONFIGURAÇÃO ---
+st.set_page_config(page_title="Judô Pro | Administrativo", page_icon="🥋", layout="wide")
 
-# --- 2. CAMADA DE ESTILO (CSS) ---
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-    .stApp { background-color: #F8FAFC; }
-    [data-testid="stSidebar"] { background-color: #0F172A !important; border-right: 1px solid #1E293B; }
-    [data-testid="stSidebar"] * { color: #F8FAFC !important; }
-    div[data-testid="metric-container"] {
-        background-color: #FFFFFF; border: 1px solid #E2E8F0;
-        padding: 20px; border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-    .stButton>button {
-        border-radius: 10px; font-weight: 600;
-        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
-        color: white; border: none; padding: 0.7rem;
-        transition: 0.3s all;
-    }
-    .stButton>button:hover { transform: scale(1.02); box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3); }
-    </style>
-""", unsafe_allow_html=True)
+# --- 2. BANCO DE DADOS ---
+DB_ATLETAS = "atleta_v27.csv"
+DB_FINANCEIRO = "fin_v27.csv"
 
-# --- 3. FUNÇÕES DE HASH ---
-def hash_senha(senha):
-    return hashlib.sha256(senha.encode()).hexdigest()
+def load_data():
+    cols_a = ["ID", "Nome", "Status", "Faixa", "Telefone", "Responsavel", "Mensalidade", "Dia_Vencimento", "Obs_Medicas", "Data_Filiacao"]
+    cols_f = ["ID_Atleta", "Nome_Atleta", "Mes_Ref", "Valor_Total", "Valor_Pix", "Valor_Dinheiro", "Data_Pagamento", "Metodo"]
+    
+    df_a = pd.read_csv(DB_ATLETAS) if os.path.exists(DB_ATLETAS) else pd.DataFrame(columns=cols_a)
+    df_f = pd.read_csv(DB_FINANCEIRO) if os.path.exists(DB_FINANCEIRO) else pd.DataFrame(columns=cols_f)
+    
+    # Reparação de colunas para compatibilidade
+    for col in cols_a:
+        if col not in df_a.columns: df_a[col] = ""
+    return df_a, df_f
 
-def verificar_senha(user_input, senha_hash):
-    return hash_senha(user_input) == senha_hash
+def save_data(df_a, df_f):
+    df_a.to_csv(DB_ATLETAS, index=False)
+    df_f.to_csv(DB_FINANCEIRO, index=False)
 
-# --- 4. BANCO DE DADOS ---
-class DBManager:
-    DB_A = "atleta_v26.csv"
-    DB_F = "fin_v26.csv"
-    DB_U = "usuarios.csv"
-
-    COLS_A = ["ID","Nome","Status","Faixa","Telefone","Responsavel","Mensalidade","Dia_Vencimento","Obs_Medicas","Data_Filiacao"]
-    COLS_F = ["ID_Atleta","Nome_Atleta","Mes_Ref","Valor_Total","Valor_Pix","Valor_Dinheiro","Data_Pagamento","Metodo"]
-    COLS_U = ["Usuario","SenhaHash"]
-
-    @staticmethod
-    def initialize():
-        if not os.path.exists(DBManager.DB_A):
-            pd.DataFrame(columns=DBManager.COLS_A).to_csv(DBManager.DB_A, index=False)
-        if not os.path.exists(DBManager.DB_F):
-            pd.DataFrame(columns=DBManager.COLS_F).to_csv(DBManager.DB_F, index=False)
-        if not os.path.exists(DBManager.DB_U):
-            senha_admin = hash_senha("judo123")
-            pd.DataFrame([{"Usuario":"admin","SenhaHash":senha_admin}]).to_csv(DBManager.DB_U, index=False)
-
-    @staticmethod
-    def load():
-        df_a = pd.read_csv(DBManager.DB_A)
-        df_f = pd.read_csv(DBManager.DB_F)
-        df_u = pd.read_csv(DBManager.DB_U)
-        return df_a, df_f, df_u
-
-    @staticmethod
-    def save(df_a, df_f):
-        df_a.to_csv(DBManager.DB_A, index=False)
-        df_f.to_csv(DBManager.DB_F, index=False)
-
-DBManager.initialize()
 if 'atletas_df' not in st.session_state:
-    st.session_state.atletas_df, st.session_state.fin_df, st.session_state.usuarios_df = DBManager.load()
+    st.session_state.atletas_df, st.session_state.fin_df = load_data()
 
-# --- 5. LOGIN SEGURO ---
+# --- 3. LOGIN ---
 if "autenticado" not in st.session_state: st.session_state.autenticado = False
+if not st.session_state.autenticado:
+    _, col_log, _ = st.columns([1, 1, 1])
+    with col_log:
+        st.title("🥋 Judô Pro")
+        senha = st.text_input("Senha", type="password")
+        if st.button("Entrar"):
+            if senha == "judo123":
+                st.session_state.autenticado = True
+                st.rerun()
+            else: st.error("Incorreta")
+    st.stop()
 
-def login():
-    if not st.session_state.autenticado:
-        _, col, _ = st.columns([1,1.2,1])
-        with col:
-            st.markdown("<br><br><h1 style='text-align:center;'>🥋 Judô Pro</h1>", unsafe_allow_html=True)
-            user = st.text_input("Usuário")
-            senha = st.text_input("Senha", type="password")
-            if st.button("Acessar Painel"):
-                df_u = st.session_state.usuarios_df
-                if user in df_u['Usuario'].values:
-                    senha_hash = df_u[df_u['Usuario']==user]['SenhaHash'].values[0]
-                    if verificar_senha(senha, senha_hash):
-                        st.session_state.autenticado = True
-                        st.rerun()
-                    else: st.error("Senha incorreta.")
-                else: st.error("Usuário não encontrado.")
-        st.stop()
+# --- 4. NAVEGAÇÃO ---
+aba = st.sidebar.radio("Navegação", ["Dashboard", "Alunos", "Financeiro"])
 
-login()
+# --- 5. TELAS ---
 
-# --- 6. MENU ---
-with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3043/3043831.png", width=70)
-    st.title("Menu de Gestão")
-    menu = st.radio("NAVEGAÇÃO", ["🏠 Início","🥋 Alunos","💰 Caixa","📑 Relatórios"], label_visibility="collapsed")
-    st.divider()
-    if st.button("Sair do Sistema"):
-        st.session_state.autenticado = False
-        st.rerun()
-
-# --- 7. TELAS ---
-# DASHBOARD
-if menu == "🏠 Início":
-    st.title("📊 Painel de Controle")
+if aba == "Dashboard":
+    st.title("📊 Resumo Administrativo")
     df_a, df_f = st.session_state.atletas_df, st.session_state.fin_df
-    m1,m2,m3,m4 = st.columns(4)
-    m1.metric("Alunos Ativos", len(df_a[df_a['Status']=="Ativo"]))
-    m2.metric("Inativos", len(df_a[df_a['Status']=="Inativo"]))
-    receita_total = pd.to_numeric(df_f['Valor_Total'], errors='coerce').sum()
-    m3.metric("Caixa Acumulado", f"R$ {receita_total:,.2f}".replace(",", "v").replace(".", ",").replace("v","."))
-    previsto = pd.to_numeric(df_a[df_a['Status']=="Ativo"]['Mensalidade'], errors='coerce').sum()
-    m4.metric("Previsão Mensal", f"R$ {previsto:,.2f}".replace(",", "v").replace(".", ",").replace("v","."))
-    st.divider()
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Alunos Ativos", len(df_a[df_a['Status'] == 'Ativo']))
+    receita = pd.to_numeric(df_f['Valor_Total'], errors='coerce').sum()
+    c2.metric("Total em Caixa", f"R$ {receita:,.2f}")
+    c3.metric("Data", datetime.now().strftime("%d/%m/%Y"))
+    
     if not df_f.empty:
-        col_graf,col_venc = st.columns([1.5,1])
-        with col_graf:
-            st.subheader("📈 Evolução de Receita")
-            df_f['Valor_Total'] = pd.to_numeric(df_f['Valor_Total'], errors='coerce')
-            graf_data = df_f.groupby('Mes_Ref')['Valor_Total'].sum().reset_index()
-            fig = px.area(graf_data, x='Mes_Ref', y='Valor_Total', title="Faturamento por Mês", color_discrete_sequence=['#2563EB'])
-            st.plotly_chart(fig, use_container_width=True)
-        with col_venc:
-            st.subheader("🔔 Próximos Vencimentos")
-            prox = df_a[df_a['Status']=="Ativo"].sort_values('Dia_Vencimento')
-            st.dataframe(prox[['Nome','Dia_Vencimento','Mensalidade']].head(10), use_container_width=True, hide_index=True)
+        df_f['Valor_Total'] = pd.to_numeric(df_f['Valor_Total'], errors='coerce')
+        fig = px.bar(df_f.groupby('Mes_Ref')['Valor_Total'].sum().reset_index(), 
+                     x='Mes_Ref', y='Valor_Total', title="Faturamento Mensal")
+        st.plotly_chart(fig, use_container_width=True)
 
-# ALUNOS
-elif menu == "🥋 Alunos":
-    st.title("🥋 Gestão de Atletas")
-    tab_list, tab_cad, tab_edit = st.tabs(["📋 Listagem Geral", "✨ Nova Matrícula", "🔧 Editar Perfil"])
+elif aba == "Alunos":
+    st.title("👥 Gestão de Alunos")
+    t1, t2 = st.tabs(["Cadastrar", "Editar"])
+    
+    with t1:
+        # FORMULÁRIO DE CADASTRO
+        with st.form("form_novo_aluno"):
+            st.subheader("Dados do Novo Aluno")
+            nome = st.text_input("Nome Completo")
+            tel = st.text_input("Telefone")
+            faixa = st.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
+            mensal = st.number_input("Mensalidade", 150.0)
+            venc = st.selectbox("Dia Vencimento", list(range(1, 31)), index=4)
+            resp = st.text_input("Responsável")
+            obs = st.text_area("Observações Médicas")
+            
+            # O BOTÃO DEVE ESTAR AQUI (DENTRO DO WITH)
+            submit_cad = st.form_submit_button("Finalizar Matrícula")
+            
+            if submit_cad:
+                if nome and tel:
+                    new_id = int(st.session_state.atletas_df['ID'].max() + 1) if not st.session_state.atletas_df.empty else 1
+                    novo = pd.DataFrame([{"ID": new_id, "Nome": nome, "Status": "Ativo", "Faixa": faixa, "Telefone": tel, "Responsavel": resp, "Mensalidade": mensal, "Dia_Vencimento": venc, "Obs_Medicas": obs}])
+                    st.session_state.atletas_df = pd.concat([st.session_state.atletas_df, novo], ignore_index=True)
+                    save_data(st.session_state.atletas_df, st.session_state.fin_df)
+                    st.success("Salvo!")
+                    time.sleep(1); st.rerun()
+                else: st.error("Nome e Telefone são obrigatórios!")
 
-    with tab_list:
-        faixa_sel = st.multiselect("Filtrar por Faixa", st.session_state.atletas_df['Faixa'].unique())
-        status_sel = st.selectbox("Status", ["Todos","Ativo","Inativo"])
-        df_filtrado = st.session_state.atletas_df
-        if faixa_sel: df_filtrado = df_filtrado[df_filtrado['Faixa'].isin(faixa_sel)]
-        if status_sel!="Todos": df_filtrado = df_filtrado[df_filtrado['Status']==status_sel]
-        st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
+    with t2:
+        busca = st.text_input("Buscar Aluno")
+        df_res = st.session_state.atletas_df[st.session_state.atletas_df['Nome'].str.contains(busca, case=False, na=False)]
+        if not df_res.empty:
+            sel = st.selectbox("Selecione o aluno", [f"{r['Nome']} (ID: {r['ID']})" for _, r in df_res.iterrows()])
+            idx = st.session_state.atletas_df[st.session_state.atletas_df['ID'] == int(sel.split("(ID: ")[1].replace(")", ""))].index[0]
+            
+            # FORMULÁRIO DE EDIÇÃO
+            with st.form("form_editar_aluno"):
+                atl = st.session_state.atletas_df.loc[idx]
+                e_status = st.selectbox("Status", ["Ativo", "Inativo"], index=0 if atl['Status'] == "Ativo" else 1)
+                e_faixa = st.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"], index=["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"].index(atl['Faixa']))
+                e_mensal = st.number_input("Mensalidade", value=float(atl['Mensalidade']))
+                e_obs = st.text_area("Notas", value=str(atl['Obs_Medicas']))
+                
+                # BOTÃO DE EDIÇÃO (DENTRO DO WITH)
+                submit_edit = st.form_submit_button("Atualizar Cadastro")
+                
+                if submit_edit:
+                    st.session_state.atletas_df.loc[idx, ["Status", "Faixa", "Mensalidade", "Obs_Medicas"]] = [e_status, e_faixa, e_mensal, e_obs]
+                    save_data(st.session_state.atletas_df, st.session_state.fin_df)
+                    st.success("Atualizado!")
+                    time.sleep(1); st.rerun()
 
-    with tab_cad:
-        with st.form("cad_form", clear_on_submit=True):
-            st.subheader("Informações do Atleta")
-            c1, c2 = st.columns(2)
-            n_nome = c1.text_input("Nome Completo*")
-            n_tel = c2.text_input("Telefone*")
-            c3, c4, c5 = st.columns(3)
-            n_faixa = c3.selectbox("Faixa", ["Branca","Cinza","Azul","Amarela","Laranja","Verde","Roxa","Marrom","Preta"])
-            n_mensal = c4.number_input("Mensalidade (R$)", value=150.0)
+elif aba == "Financeiro":
+    st.title("💰 Financeiro")
+    with st.form("form_pag"):
+        aluno = st.selectbox("Aluno", st.session_state.atletas_df[st.session_state.atletas_df['Status'] == 'Ativo']['Nome'].tolist())
+        c1, c2 = st.columns(2)
+        data_p = c1.date_input("Data do Pagamento", datetime.now())
+        mes_r = c2.text_input("Mês Referência (MM/AAAA)", datetime.now().strftime("%m/%Y"))
+        valor = st.number_input("Valor Recebido", 150.0)
+        metodo = st.selectbox("Forma", ["PIX", "Dinheiro", "Misto"])
+        
+        # BOTÃO FINANCEIRO (DENTRO DO WITH)
+        submit_fin = st.form_submit_button("Confirmar Pagamento")
+        
+        if submit_fin:
+            id_a = st.session_state.atletas_df[st.session_state.atletas_df['Nome'] == aluno]['ID'].values[0]
+            novo_p = pd.DataFrame([{"ID_Atleta": id_a, "Nome_Atleta": aluno, "Mes_Ref": mes_r, "Valor_Total": valor, "Data_Pagamento": data_p.strftime("%d/%m/%Y"), "Metodo": metodo}])
+            st.session_state.fin_df = pd.concat([st.session_state.fin_df, novo_p], ignore_index=True)
+            save_data(st.session_state.atletas_df, st.session_state.fin_df)
+            st.success("Pagamento Registrado!")
+            st.code(f"RECIBO: {aluno} - R${valor:.2f} - Data: {data_p.strftime('%d/%m/%Y')}")
