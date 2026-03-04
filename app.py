@@ -161,4 +161,12 @@ if menu == "💰 Financeiro":
         else:
             st.info("Nenhum lançamento financeiro encontrado.")
 
-# ---
+# --- DEMAIS ABAS (DASHBOARD E ALUNOS - RESUMIDAS PARA O EXEMPLO) ---
+elif menu == "📊 Dashboard":
+    st.title("📊 Indicadores")
+    st.metric("Total em Caixa", f"R$ {st.session_state.df_f['Valor'].sum():,.2f}")
+    st.plotly_chart(px.line(st.session_state.df_f, x='Data_PG', y='Valor', title="Fluxo de Caixa"), use_container_width=True)
+
+elif menu == "👥 Alunos":
+    st.info("Módulo de gestão de alunos ativo. Utilize as funções de Edição Total liberadas na versão anterior.")
+    st.dataframe(st.session_state.df_a, use_container_width=True)
