@@ -7,7 +7,7 @@ from datetime import datetime
 import plotly.express as px
 
 # --- 1. CONFIGURAÇÕES TÉCNICAS ---
-st.set_page_config(page_title="Judô | Gestão Administrativa", page_icon="🥋", layout="wide")
+st.set_page_config(page_title="Judô Pro | Gestão Administrativa", page_icon="🥋", layout="wide")
 
 # --- 2. CAMADA DE ESTILO (CSS) ---
 st.markdown("""
@@ -155,4 +155,4 @@ elif menu == "🥋 Alunos":
             n_tel = c2.text_input("Telefone*")
             c3, c4, c5 = st.columns(3)
             n_faixa = c3.selectbox("Faixa", ["Branca","Cinza","Azul","Amarela","Laranja","Verde","Roxa","Marrom","Preta"])
-            n_mensal = c4.number_input
+            n_mensal = c4.number_input("Mensalidade (R
