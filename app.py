@@ -2,8 +2,9 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
+from PIL import Image
 
-# --- CONFIGURAÇÃO DE ALTA PERFORMANCE ---
+# --- CONFIGURAÇÃO DE ALTA PERFORMANCE E CABEÇALHO ---
 st.set_page_config(
     page_title="Assoc. Roberdrayner Martins",
     page_icon="🥋",
@@ -11,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- DESIGN SYSTEM (CSS PROFISSIONAL) ---
+# --- DESIGN SYSTEM (CSS PROFISSIONAL E AJUSTE DE LOGO) ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
@@ -25,6 +26,14 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #1a237e; color: white; }
     [data-testid="stSidebar"] * { color: white !important; }
     
+    /* Ajuste para centralizar a logo na sidebar */
+    [data-testid="stSidebar"] img {
+        margin-left: auto;
+        margin-right: auto;
+        display: block;
+        padding-top: 20px;
+    }
+
     /* Cards de Métricas */
     .metric-card {
         background-color: white;
@@ -64,6 +73,8 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # --- LÓGICA DE DADOS ---
+# Utilizei a imagem que você forneceu: image_0.png
+LOGO_FILE = "image_0.png"
 DB_FILE = "gestao_judo_v3.csv"
 
 def init_db():
@@ -80,14 +91,21 @@ if 'df' not in st.session_state:
 def save():
     st.session_state.df.to_csv(DB_FILE, index=False)
 
-# --- SIDEBAR E CABEÇALHO ---
+# --- SIDEBAR E MENU ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3003/3003613.png", width=80)
+    # --- INTEGRAÇÃO DA LOGO ---
+    if os.path.exists(LOGO_FILE):
+        img_logo = Image.open(LOGO_FILE)
+        st.image(img_logo, width=150) # Centralizado via CSS acima
+    else:
+        st.warning("⚠️ Logo image_0.png não encontrada!")
+        st.image("https://cdn-icons-png.flaticon.com/512/3003/3003613.png", width=80) # Logo padrão de backup
+
     st.title("Sistema de Gestão")
     st.markdown("---")
     menu = st.radio("MENU", ["📈 Dashboard", "👥 Atletas", "💰 Financeiro", "⚙️ Ajustes"])
     st.markdown("---")
-    st.caption("Assoc. Roberdrayner Martins de Judô v3.0")
+    st.caption("Assoc. Roberdrayner Martins de Judô v3.1")
 
 # --- CONTEÚDO PRINCIPAL ---
 
@@ -106,7 +124,12 @@ if menu == "📈 Dashboard":
         atraso = len(df[df['Status'] == 'Pendente'])
         st.markdown(f'<div class="metric-card"><h3>{atraso}</h3><p>Pendentes</p></div>', unsafe_allow_html=True)
     with c4:
-        total = df['Mensalidade'].astype(float).sum() if not df.empty else 0
+        # Trata faturamento (mensalidade vazia ou texto)
+        if not df.empty:
+            df_receita = pd.to_numeric(df['Mensalidade'], errors='coerce').fillna(0)
+            total = df_receita.sum()
+        else:
+            total = 0
         st.markdown(f'<div class="metric-card"><h3>R$ {total:,.2f}</h3><p>Faturamento</p></div>', unsafe_allow_html=True)
 
     st.markdown("### 🥋 Visão Geral dos Alunos")
@@ -186,6 +209,7 @@ elif menu == "⚙️ Ajustes":
     st.write("Configurações do sistema e backup.")
     
     if st.button("📥 Baixar Backup (Excel)"):
+        # Adicione openpyxl ao requirements.txt se for usar
         st.session_state.df.to_excel("backup_judo.xlsx", index=False)
         st.success("Arquivo gerado na pasta do sistema!")
         
