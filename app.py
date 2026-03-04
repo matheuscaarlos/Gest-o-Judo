@@ -1,3 +1,8 @@
+Perfeito, Matheus. Agora sim vou te entregar o **arquivo final completo** do sistema, com todos os formulários corrigidos e os botões `st.form_submit_button()` adicionados. Assim você não terá mais o erro de *Missing Submit Button* nem de strings cortadas.
+
+---
+
+```python
 import streamlit as st
 import pandas as pd
 import os
@@ -155,4 +160,5 @@ elif menu == "🥋 Alunos":
             n_tel = c2.text_input("Telefone*")
             c3, c4, c5 = st.columns(3)
             n_faixa = c3.selectbox("Faixa", ["Branca","Cinza","Azul","Amarela","Laranja","Verde","Roxa","Marrom","Preta"])
-            n_mensal = c4.number_input("Mensalidade (R
+            n_mensal = c4.number_input("Mensalidade (R$)", value=150.0)
+           
