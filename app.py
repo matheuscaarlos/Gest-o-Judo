@@ -8,29 +8,27 @@ from PIL import Image
 # --- CONFIGURAÇÃO ---
 st.set_page_config(page_title="Assoc. Roberdrayner Martins", page_icon="🥋", layout="wide")
 
-# --- BANCO DE DADOS (Arquivos V5 para evitar conflitos com erros anteriores) ---
+# --- BANCO DE DADOS ---
 DB_ATLETAS = "atletas_v5.csv"
 DB_FINANCEIRO = "financeiro_v5.csv"
 
 def load_data():
-    cols = ["ID", "Nome", "Faixa", "Status", "Mensalidade", "Data_Filiacao", 
-            "CPF", "RG", "Telefone", "Endereco", "Peso", "Sangue"]
+    cols_atleta = ["ID", "Nome", "Faixa", "Status", "Mensalidade", "Data_Filiacao", "CPF", "RG", "Telefone", "Endereco", "Peso", "Sangue"]
+    cols_fin = ["ID_Atleta", "Nome_Atleta", "Mes_Ref", "Valor_Total", "Data_Pagamento", "Metodo", "Detalhe_Misto"]
     
-    # Carregar Atletas
     if os.path.exists(DB_ATLETAS):
         df = pd.read_csv(DB_ATLETAS)
-        # Verifica se todas as colunas necessárias existem, se não, cria
-        for col in cols:
-            if col not in df.columns:
-                df[col] = "Não Informado"
+        for col in cols_atleta:
+            if col not in df.columns: df[col] = "Não Informado"
     else:
-        df = pd.DataFrame(columns=cols)
+        df = pd.DataFrame(columns=cols_atleta)
         
-    # Carregar Financeiro
     if os.path.exists(DB_FINANCEIRO):
         df_fin = pd.read_csv(DB_FINANCEIRO)
+        for col in cols_fin:
+            if col not in df_fin.columns: df_fin[col] = ""
     else:
-        df_fin = pd.DataFrame(columns=["ID_Atleta", "Mes_Ref", "Ano_Ref", "Valor", "Data_Pgto", "Metodo"])
+        df_fin = pd.DataFrame(columns=cols_fin)
         
     return df, df_fin
 
@@ -38,9 +36,136 @@ def save_data(atleta_df, fin_df):
     atleta_df.to_csv(DB_ATLETAS, index=False)
     fin_df.to_csv(DB_FINANCEIRO, index=False)
 
-# Inicialização
 if 'atletas_df' not in st.session_state:
     st.session_state.atletas_df, st.session_state.fin_df = load_data()
+
+# --- SIDEBAR ---
+with st.sidebar:
+    if os.path.exists("image_0.png"):
+        st.image("image_0.png", use_container_width=True)
+    st.markdown("### Associação Roberdrayner Martins")
+    aba = st.radio("Menu", ["🏠 Dashboard", "🥋 Atletas", "💰 Financeiro", "⚙️ Sistema"])
+
+# --- DASHBOARD ---
+if aba == "🏠 Dashboard":
+    st.title("🏯 Painel de Controle")
+    df_a = st.session_state.atletas_df
+    df_f = st.session_state.fin_df
+    
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Alunos Cadastrados", len(df_a))
+    
+    receita_mes = 0
+    if not df_f.empty:
+        # Soma valores totais convertendo para numérico
+        receita_mes = pd.to_numeric(df_f['Valor_Total'], errors='coerce').sum()
+    
+    c2.metric("Receita Total (Histórico)", f"R$ {receita_mes:,.2f}")
+    
+    if not df_a.empty:
+        fig = px.pie(df_a, names='Faixa', title="Distribuição por Faixas", hole=.4)
+        st.plotly_chart(fig, use_container_width=True)
+
+# --- ATLETAS ---
+elif aba == "🥋 Atletas":
+    st.title("👥 Gestão de Integrantes")
+    tab_cad, tab_edit = st.tabs(["➕ Novo Cadastro", "📝 Editar ou Excluir"])
+    
+    with tab_cad:
+        with st.form("form_novo"):
+            c1, c2 = st.columns(2)
+            nome = c1.text_input("Nome Completo*")
+            tel = c2.text_input("Telefone/WhatsApp")
+            
+            c3, c4 = st.columns(2)
+            faixa = c3.selectbox("Faixa", ["Branca", "Cinza", "Azul", "Amarela", "Laranja", "Verde", "Roxa", "Marrom", "Preta"])
+            valor = c4.number_input("Valor Mensalidade Padrão", value=150.0)
+            
+            if st.form_submit_button("✅ Cadastrar"):
+                if nome:
+                    new_id = int(st.session_state.atletas_df['ID'].max() + 1) if not st.session_state.atletas_df.empty else 1
+                    novo = pd.DataFrame([[new_id, nome, faixa, "Ativo", valor, datetime.now().strftime("%d/%m/%Y"), "-", "-", tel, "-", 0.0, "N/I"]], 
+                                       columns=st.session_state.atletas_df.columns)
+                    st.session_state.atletas_df = pd.concat([st.session_state.atletas_df, novo], ignore_index=True)
+                    save_data(st.session_state.atletas_df, st.session_state.fin_df)
+                    st.success(f"{nome} cadastrado!")
+                    st.rerun()
+
+    with tab_edit:
+        if not st.session_state.atletas_df.empty:
+            sel = st.selectbox("Selecione para Editar", st.session_state.atletas_df['Nome'].tolist())
+            idx = st.session_state.atletas_df[st.session_state.atletas_df['Nome'] == sel].index[0]
+            with st.form("form_edit"):
+                n_nome = st.text_input("Nome", value=st.session_state.atletas_df.at[idx, 'Nome'])
+                n_val = st.number_input("Mensalidade", value=float(st.session_state.atletas_df.at[idx, 'Mensalidade']))
+                c_btn1, c_btn2 = st.columns(2)
+                if c_btn1.form_submit_button("💾 Salvar"):
+                    st.session_state.atletas_df.at[idx, 'Nome'] = n_nome
+                    st.session_state.atletas_df.at[idx, 'Mensalidade'] = n_val
+                    save_data(st.session_state.atletas_df, st.session_state.fin_df)
+                    st.rerun()
+                if c_btn2.form_submit_button("🗑️ Excluir"):
+                    st.session_state.atletas_df = st.session_state.atletas_df.drop(idx).reset_index(drop=True)
+                    save_data(st.session_state.atletas_df, st.session_state.fin_df)
+                    st.rerun()
+
+# --- FINANCEIRO (NOVA FUNCIONALIDADE MISTA) ---
+elif aba == "💰 Financeiro":
+    st.title("💸 Gestão de Pagamentos")
+    
+    with st.container(border=True):
+        st.subheader("Registrar Recebimento")
+        c1, c2 = st.columns(2)
+        
+        aluno_f = c1.selectbox("Atleta", st.session_state.atletas_df['Nome'].tolist())
+        data_pg = c2.date_input("Data do Pagamento", datetime.now())
+        
+        c3, c4 = st.columns(2)
+        mes_ref = c3.selectbox("Mês de Referência", ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"])
+        metodo = c4.selectbox("Forma de Pagamento", ["PIX", "Dinheiro", "Cartão", "Misto (PIX + Dinheiro)"])
+        
+        # Lógica para Pagamento Misto
+        detalhe_misto = ""
+        valor_total = st.session_state.atletas_df[st.session_state.atletas_df['Nome'] == aluno_f]['Mensalidade'].values[0]
+        
+        if metodo == "Misto (PIX + Dinheiro)":
+            st.info("Informe a divisão dos valores:")
+            col_m1, col_m2 = st.columns(2)
+            v_pix = col_m1.number_input("Valor no PIX (R$)", value=valor_total/2)
+            v_din = col_m2.number_input("Valor no Dinheiro (R$)", value=valor_total/2)
+            valor_total = v_pix + v_din
+            detalhe_misto = f"PIX: R${v_pix:.2f} | Din: R${v_din:.2f}"
+        else:
+            valor_total = st.number_input("Confirmar Valor Total (R$)", value=float(valor_total))
+
+        if st.button("🚀 Confirmar Recebimento"):
+            id_a = st.session_state.atletas_df[st.session_state.atletas_df['Nome'] == aluno_f]['ID'].values[0]
+            
+            novo_pgto = pd.DataFrame([[
+                id_a, 
+                aluno_f, 
+                mes_ref, 
+                valor_total, 
+                data_pg.strftime("%d/%m/%Y"), 
+                metodo, 
+                detalhe_misto
+            ]], columns=st.session_state.fin_df.columns)
+            
+            st.session_state.fin_df = pd.concat([st.session_state.fin_df, novo_pgto], ignore_index=True)
+            save_data(st.session_state.atletas_df, st.session_state.fin_df)
+            st.balloons()
+            st.success(f"Pagamento de {aluno_f} registrado!")
+
+    st.divider()
+    st.subheader("📊 Histórico de Entradas")
+    if not st.session_state.fin_df.empty:
+        st.dataframe(st.session_state.fin_df[['Nome_Atleta', 'Mes_Ref', 'Valor_Total', 'Data_Pagamento', 'Metodo', 'Detalhe_Misto']], 
+                     use_container_width=True, hide_index=True)
+
+# --- SISTEMA ---
+elif aba == "⚙️ Sistema":
+    st.title("⚙️ Configurações")
+    st.download_button("📥 Exportar Relatório Financeiro", data=st.session_state.fin_df.to_csv(index=False).encode('utf-8'), file_name="financeiro_judo.csv")
 
 # --- SIDEBAR ---
 with st.sidebar:
